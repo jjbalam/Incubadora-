@@ -1,0 +1,68 @@
+import dht
+import machine
+import time
+from lcd import LCD
+
+# Configuración del pin del sensor DHT11 (GPIO16)
+pin_dht = machine.Pin(11, machine.Pin.IN)
+sensor_dht = dht.DHT11(pin_dht)
+
+# Configuración del pin del servo (GPIO12)
+servo_pin = machine.Pin(12)
+servo = machine.PWM(servo_pin)
+
+# Configuración del pin de control (GPIO9)
+control_pin = machine.Pin(10, machine.Pin.OUT)
+
+# Configuración del pin de control 2 (GPIO10)
+control_pin_2 = machine.Pin(9, machine.Pin.OUT)
+
+
+# Configura el rango de valores de pulso PWM para 180 grados
+MIN_PULSE_WIDTH = 500000  # 0 grados
+MAX_PULSE_WIDTH = 2500000  # 180 grados
+
+# Inicializar el LCD
+lcd = LCD(0, 1, 2, 3, 4, 5)
+lcd.clear()
+
+def move_servo_slowly(start_pulse, end_pulse):
+    # Mueve el servo lentamente entre los valores de pulso especificados
+    step = 1000 if start_pulse < end_pulse else -1000
+    for pulso in range(start_pulse, end_pulse + step, step):
+        servo.duty_ns(pulso)
+        time.sleep_ms(10)  # Espera 10 milisegundos entre pasos
+
+try:
+    while True:
+        # Realiza la lectura del sensor DHT11
+        sensor_dht.measure()
+        # Obtiene los valores de temperatura y humedad
+        temp_celsius = sensor_dht.temperature()
+        humidity = sensor_dht.humidity()
+
+        # Actualiza el LCD con los nuevos valores
+        lcd.clear()
+        lcd.move_to(0, 0)
+        lcd.putstr("Temp: {}C".format(temp_celsius))
+        lcd.move_to(0, 1)
+        lcd.putstr("Hum: {}%".format(humidity))
+
+        # Si la temperatura es mayor a 38°C, establece el pin de control en bajo (low)
+        if temp_celsius > 37:
+            control_pin.value(1)
+        else:
+            control_pin.value(0)
+            
+              # Si la temperatura es mayor a 37°C, establece el pin de control 2 en alto (high)
+        if humidity < 70:
+            control_pin_2.value(1)
+        else:
+            control_pin_2.value(0)
+
+        
+        time.sleep(12)  # Espera 4 segundos
+        
+except KeyboardInterrupt:
+    # Detiene el servo si se presiona Ctrl+C
+    servo.duty_ns(0)
